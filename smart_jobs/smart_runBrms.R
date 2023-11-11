@@ -21,7 +21,7 @@
 #'@return There is no return. The model will be saved as a file automatically.
 #'
 #'
-smart_runModels <- function(formula=NULL, data=NULL, prior=NULL, args, model_path, name, log_path = model_path, priority = 1, maxCore = NULL, checkInt = 30){
+smart_runBrms <- function(formula=NULL, data=NULL, prior=NULL, args, model_path, name, log_path = model_path, priority = 1, maxCore = NULL, checkInt = 30){
   
   # check packages
   packages = c("brms", "dplyr", "stringr", "glue", "progress")
@@ -125,9 +125,6 @@ smart_runModels <- function(formula=NULL, data=NULL, prior=NULL, args, model_pat
     
   }
   
-  # The full name of the file (including the path)
-  file_name <- paste(path,name, sep = "")
-  
   # print the start time
   start_time = Sys.time()
   message(str_glue("The model starts to run at {start_time}"))
@@ -137,6 +134,11 @@ smart_runModels <- function(formula=NULL, data=NULL, prior=NULL, args, model_pat
   if (!is.null(formula)) model_args <- append(list(formula = formula),model_args)
   if (!is.null(data)) model_args <- append(list(data = data),model_args)
   if (!is.null(prior)) model_args <- append(list(prior = prior),model_args)
+  
+  # Specify the file's save location
+  file_model_name <- str_glue("{model_path}{name}")
+  model_args <- model_args %>% 
+    append(list(file = file_model_name, file_refit = "on_change"))
   
   
   tryCatch(
