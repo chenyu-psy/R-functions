@@ -22,7 +22,7 @@ get_JATOS_data <- function(token, url = "https://coglab.xyz/jatos/api/v1/results
   if (is.null(dataPath)) dataPath = "./" # Set the default data path
   
   # Create the authorization header with the specified token
-  headers = headers = c(`Authorization` = str_glue("Bearer {token}"))
+  headers = c(`Authorization` = str_glue("Bearer {token}"))
   
   # Send an HTTP GET request to the specified URL, passing in the UUID and batch ID
   # Also pass in the authorization header and write the response to a temporary file
@@ -52,19 +52,32 @@ get_JATOS_data <- function(token, url = "https://coglab.xyz/jatos/api/v1/results
   # Extract relevant metadata from the metadata list and store in a data frame
   info_table <- data.frame()
   for (a in 1:length(metaData)) {
+    # ID
     info_table[a, "resultID"] = metaData[[a]]$id
     info_table[a, "componentID"] = metaData[[a]]$componentResults[[1]]$id
-    # info_table[a, "duration"] = ifelse(is.null(metaData[[a]]$duration),
-    #                                    metaData[[a]]$lastSeenDate - metaData[[a]]$startDate,
-    #                                    sapply(strsplit(metaData[[a]]$duration, ":"), function(n) as.numeric(n) %*% c(3600, 60, 1))
-    # )
+    # duration
+    if (is.null(metaData[[a]]$duration)) {
+      info_table[a, "duration"] = NA
+    } else {
+      exp_duration = metaData[[a]]$duration
+      count_colon = str_count(exp_duration, ":")
+      info_table[a, "duration"] = case_match(
+        count_colon,
+        3 ~ 1440, # if the duration is more than 24 hours, we will treat it as 24 hours
+        2 ~ as.numeric(lubridate::hms(exp_duration), "minutes"),
+        1 ~ as.numeric(lubridate::ms(exp_duration), "minutes"),
+        TRUE ~ NA
+      )
+    }
+    # studyState
     info_table[a, "studyState"] = metaData[[a]]$studyState
   }
   
   # Combine the file data and metadata into a single data frame
   outcome <- info_table %>% 
     right_join(file_table) %>% 
-    filter(!is.na(resultID))
+    filter(!is.na(resultID)) %>% 
+    mutate(size = file.info(file)$size/1024)
   
   # Return the combined data frame
   return(outcome)
